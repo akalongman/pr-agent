@@ -42,7 +42,7 @@ def test_build_command_places_global_flags_before_exec(monkeypatch):
     assert command.argv == [
         "codex", "--ask-for-approval", "never", "--sandbox", "read-only", "--model", "gpt-5.6",
         "--config", 'developer_instructions="SYS line1\\nline2"',
-        "--config", 'model_reasoning_effort="xhigh"',
+        "--config", 'model_reasoning_effort="max"',
         "exec", "--json", "--ephemeral", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check",
         "--color", "never", "--cd", handler.workdir, "--profile", "ci", "-",
     ]
@@ -50,9 +50,25 @@ def test_build_command_places_global_flags_before_exec(monkeypatch):
 
 
 def test_build_command_skips_unknown_effort(monkeypatch):
-    _install_settings(monkeypatch, {"CONFIG.REASONING_EFFORT": "none"})
+    _install_settings(monkeypatch, {"CONFIG.REASONING_EFFORT": "turbo"})
     command = CodexAIHandler().build_command("gpt-5.6", "SYS", "USER")
     assert not any(arg.startswith("model_reasoning_effort") for arg in command.argv)
+
+
+@pytest.mark.parametrize("effort, expected", [
+    ("none", "low"),
+    ("minimal", "low"),
+    ("low", "low"),
+    ("medium", "medium"),
+    ("high", "high"),
+    ("xhigh", "xhigh"),
+    ("max", "max"),
+    ("MAX", "max"),
+])
+def test_build_command_maps_reasoning_effort(monkeypatch, effort, expected):
+    _install_settings(monkeypatch, {"CONFIG.REASONING_EFFORT": effort})
+    command = CodexAIHandler().build_command("gpt-5.6", "SYS", "USER")
+    assert f'model_reasoning_effort="{expected}"' in command.argv
 
 
 def test_parse_response_takes_the_agent_message_and_turn_usage(monkeypatch):

@@ -308,7 +308,7 @@ extra_args = []
 
 As above, set these in the host configuration (or `CONFIG__AI_HANDLER=codex` in the environment), never in a repository file or an argument.
 
-Intended use is the same: local, individual runs under the CLI's own login. OpenAI recommends API-key authentication "for programmatic Codex CLI workflows, such as CI/CD jobs", so keep CI on an API key. `config.reasoning_effort` maps to `model_reasoning_effort` (`minimal`, `low`, `medium`, `high`, `xhigh`; `max` becomes `xhigh`). Model names are passed to `--model` after stripping a provider prefix. `[codex]` is host-only.
+Intended use is the same: local, individual runs under the CLI's own login. OpenAI recommends API-key authentication "for programmatic Codex CLI workflows, such as CI/CD jobs", so keep CI on an API key. `config.reasoning_effort` maps to `model_reasoning_effort`: `low`, `medium`, `high`, `xhigh` and `max` pass through; `none` and `minimal` become `low`, because current Codex models reject `minimal` (and `gpt-6-astra` also rejects `none`). Model names are passed to `--model` after stripping a provider prefix. `[codex]` is host-only.
 
 !!! warning "Unset the API key for subscription billing"
     If `OPENAI_API_KEY` is present in the environment PR-Agent runs in, Codex bills that API key instead of using the subscription login; unset it in that environment to keep this handler on subscription billing.

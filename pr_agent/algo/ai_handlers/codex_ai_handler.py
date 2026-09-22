@@ -13,7 +13,9 @@ import weakref
 from pr_agent.algo.ai_handlers.cli_ai_handler import CliAIHandler, CliCommand, CliHandlerError, CliResponse
 from pr_agent.config_loader import get_settings
 
-CODEX_EFFORTS = frozenset({"minimal", "low", "medium", "high", "xhigh"})
+CODEX_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
+# Current Codex models reject "minimal", and gpt-6-astra also rejects "none"; map both to "low".
+CODEX_EFFORT_ALIASES = {"none": "low", "minimal": "low"}
 
 
 def toml_basic_string(text: str) -> str:
@@ -59,8 +61,7 @@ class CodexAIHandler(CliAIHandler):
             "--config", "developer_instructions=" + toml_basic_string(system),
         ]
         effort = str(get_settings().get("CONFIG.REASONING_EFFORT", "") or "").lower()
-        if effort == "max":
-            effort = "xhigh"
+        effort = CODEX_EFFORT_ALIASES.get(effort, effort)
         if effort in CODEX_EFFORTS:
             argv += ["--config", f'model_reasoning_effort="{effort}"']
         argv += [
