@@ -1,4 +1,7 @@
+import asyncio
+import os
 import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -139,3 +142,44 @@ async def test_run_raises_when_binary_is_missing(monkeypatch):
 
     with pytest.raises(CliHandlerError, match="command not found"):
         await handler._run(CliCommand(argv=["/nonexistent/pr-agent-cli-binary"]))
+
+
+async def test_run_kills_process_tree_on_timeout(monkeypatch):
+    # The direct child spawns a grandchild that inherits stdout/stderr and outlives it; a plain
+    # process.kill() on the direct child would leave the grandchild holding the pipes open, so
+    # communicate() would not see EOF until its own multi-second sleep ends.
+    _install_settings(monkeypatch, {"ECHO.TIMEOUT": 0.3})
+    handler = _RealProcessAdapter()
+    script = (
+        "import subprocess, sys, time; "
+        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(5)']); "
+        "time.sleep(5)"
+    )
+    command = CliCommand(argv=[sys.executable, "-c", script])
+
+    start = time.monotonic()
+    with pytest.raises(CliHandlerError, match="timed out"):
+        await handler._run(command)
+    elapsed = time.monotonic() - start
+
+    assert elapsed < 2
+
+
+async def test_run_kills_process_group_on_cancellation(monkeypatch, tmp_path):
+    _install_settings(monkeypatch)
+    handler = _RealProcessAdapter()
+    pid_file = tmp_path / "pid"
+    script = f"import os, time; open({str(pid_file)!r}, 'w').write(str(os.getpid())); time.sleep(5)"
+    command = CliCommand(argv=[sys.executable, "-c", script])
+
+    task = asyncio.ensure_future(handler._run(command))
+    while not pid_file.exists():
+        await asyncio.sleep(0.01)
+    pid = int(pid_file.read_text())
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)

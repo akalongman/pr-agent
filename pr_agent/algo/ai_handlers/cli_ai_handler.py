@@ -5,7 +5,10 @@ command's stdout becomes text and token counts. This base owns the subprocess, i
 timeout, failure mapping, logging and run-details accounting.
 """
 import asyncio
+import os
+import signal
 from abc import abstractmethod
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Optional
 
@@ -96,17 +99,38 @@ class CliAIHandler(BaseAiHandler):
         stdin_pipe = asyncio.subprocess.PIPE if command.stdin is not None else asyncio.subprocess.DEVNULL
         try:
             process = await asyncio.create_subprocess_exec(
-                *command.argv, stdin=stdin_pipe, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+                *command.argv, stdin=stdin_pipe, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                start_new_session=(os.name == "posix"))
         except FileNotFoundError as e:
             raise CliHandlerError(f"{type(self).__name__}: command not found: {command.argv[0]}") from e
         payload = command.stdin.encode("utf-8") if command.stdin is not None else None
         try:
             stdout, stderr = await asyncio.wait_for(process.communicate(payload), timeout=self.timeout)
         except asyncio.TimeoutError as e:
-            process.kill()
-            await process.wait()
+            await self._kill_process_tree(process)
             raise CliHandlerError(f"{type(self).__name__}: {command.argv[0]} timed out after {self.timeout:g}s") from e
+        except asyncio.CancelledError:
+            await self._kill_process_tree(process)
+            raise
         if process.returncode != 0:
             tail = stderr.decode("utf-8", errors="replace")[-2000:]
             raise CliHandlerError(f"{type(self).__name__}: {command.argv[0]} exited with {process.returncode}: {tail}")
         return stdout.decode("utf-8", errors="replace")
+
+    @staticmethod
+    async def _kill_process_tree(process: asyncio.subprocess.Process) -> None:
+        """Kill every process the CLI spawned, not just the direct child, then reap it.
+
+        A grandchild that inherited the pipes keeps them open after the direct child dies,
+        so ``process.wait()`` would otherwise block until that grandchild exits on its own
+        (Python resolves it only once the pipes close). Killing the whole process group
+        avoids that: the child was started as its own session leader, so its pid doubles as
+        the process group id.
+        """
+        if os.name == "posix":
+            with suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+        else:
+            with suppress(ProcessLookupError):
+                process.kill()
+        await process.wait()
