@@ -288,6 +288,9 @@ Set these in the host configuration (`pr_agent/settings/configuration.toml`, or 
 
 Intended use: local runs by the person who owns the login, for example a pre-review of a branch with the `local` git provider or `--stdin` before a merge request exists. Anthropic documents subscription OAuth as being for "ordinary use of Claude Code and other native Anthropic applications" and asks products and shared automation to use API keys; keep CI jobs on `[anthropic] key`. `config.reasoning_effort` is passed as `--effort` when it is one of `low`, `medium`, `high`, `xhigh`, `max`. Only Claude models are accepted; provider prefixes such as `anthropic/` and Bedrock's `anthropic.` are stripped. `config.ai_handler` and the `[claude_code]` section are host-only: a repository's `.pr_agent.toml` and comment arguments cannot set them.
 
+!!! warning "Unset the API key for subscription billing"
+    If `ANTHROPIC_API_KEY` is present in the environment PR-Agent runs in, Claude Code bills that API key instead of using the subscription login; unset it in that environment to keep this handler on subscription billing.
+
 ### OpenAI Codex CLI (subscription-billed local runs)
 
 The same mechanism runs prompts through the Codex CLI (`codex exec --json`). PR-Agent's system prompt travels as the `developer_instructions` setting, the run is ephemeral, read-only, ignores the user's config and rules, and starts in an empty directory so no `AGENTS.md` is picked up; the final agent message is the response and usage comes from the turn summary.
@@ -306,6 +309,12 @@ extra_args = []
 As above, set these in the host configuration (or `CONFIG__AI_HANDLER=codex` in the environment), never in a repository file or an argument.
 
 Intended use is the same: local, individual runs under the CLI's own login. OpenAI recommends API-key authentication "for programmatic Codex CLI workflows, such as CI/CD jobs", so keep CI on an API key. `config.reasoning_effort` maps to `model_reasoning_effort` (`minimal`, `low`, `medium`, `high`, `xhigh`; `max` becomes `xhigh`). Model names are passed to `--model` after stripping a provider prefix. `[codex]` is host-only.
+
+!!! warning "Unset the API key for subscription billing"
+    If `OPENAI_API_KEY` is present in the environment PR-Agent runs in, Codex bills that API key instead of using the subscription login; unset it in that environment to keep this handler on subscription billing.
+
+!!! warning "Codex has no tool-less mode"
+    `--sandbox read-only` blocks writes and network, but Codex can still run commands and read any local file the user running it can read (environment variables, credential files, SSH keys), and the model's reply is published as the review. PR-Agent's prompt to it is the pull request diff, which the contributor authored, so a crafted diff could get the model to pull local file contents into a published comment. Use the Codex handler only on the operator's own machine over diffs they trust, never on a shared server or against untrusted contributors.
 
 ### Amazon Bedrock
 
