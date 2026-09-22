@@ -298,7 +298,7 @@ The same mechanism runs prompts through the Codex CLI (`codex exec --json`). PR-
 ```toml
 [config]
 ai_handler = "codex"
-model = "gpt-5.6"
+model = "gpt-6-astra"
 fallback_models = ["gpt-5.6-terra"]
 
 [codex]
