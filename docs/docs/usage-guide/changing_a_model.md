@@ -269,6 +269,44 @@ KEY = "..."
 
 See [litellm](https://docs.litellm.ai/docs/providers/anthropic#usage) documentation for more information about the environment variables required for Anthropic.
 
+### Claude Code CLI (subscription-billed local runs)
+
+PR-Agent can send its prompts through a locally installed Claude Code instead of the Anthropic API. Each prompt becomes one headless call (`claude -p`) with PR-Agent's system prompt in place of the harness's own, tools and settings files off, and JSON output; usage is recorded from the harness's report. Authentication is Claude Code's own login, so no `[anthropic]` key is needed for this handler.
+
+```toml
+[config]
+ai_handler = "claude_code"
+model = "anthropic/claude-opus-5"
+fallback_models = ["anthropic/claude-sonnet-5"]
+
+[claude_code]
+binary = "claude"   # on PATH or an absolute path
+extra_args = []
+```
+
+Set these in the host configuration (`pr_agent/settings/configuration.toml`, or the environment as `CONFIG__AI_HANDLER=claude_code`), not in a repository's `.pr_agent.toml` and not as a command-line or comment argument: `config.ai_handler` is host-only and such arguments are rejected.
+
+Intended use: local runs by the person who owns the login, for example a pre-review of a branch with the `local` git provider or `--stdin` before a merge request exists. Anthropic documents subscription OAuth as being for "ordinary use of Claude Code and other native Anthropic applications" and asks products and shared automation to use API keys; keep CI jobs on `[anthropic] key`. `config.reasoning_effort` is passed as `--effort` when it is one of `low`, `medium`, `high`, `xhigh`, `max`. Only Claude models are accepted; provider prefixes such as `anthropic/` and Bedrock's `anthropic.` are stripped. `config.ai_handler` and the `[claude_code]` section are host-only: a repository's `.pr_agent.toml` and comment arguments cannot set them.
+
+### OpenAI Codex CLI (subscription-billed local runs)
+
+The same mechanism runs prompts through the Codex CLI (`codex exec --json`). PR-Agent's system prompt travels as the `developer_instructions` setting, the run is ephemeral, read-only, ignores the user's config and rules, and starts in an empty directory so no `AGENTS.md` is picked up; the final agent message is the response and usage comes from the turn summary.
+
+```toml
+[config]
+ai_handler = "codex"
+model = "gpt-5.6"
+fallback_models = ["gpt-5.6-terra"]
+
+[codex]
+binary = "codex"
+extra_args = []
+```
+
+As above, set these in the host configuration (or `CONFIG__AI_HANDLER=codex` in the environment), never in a repository file or an argument.
+
+Intended use is the same: local, individual runs under the CLI's own login. OpenAI recommends API-key authentication "for programmatic Codex CLI workflows, such as CI/CD jobs", so keep CI on an API key. `config.reasoning_effort` maps to `model_reasoning_effort` (`minimal`, `low`, `medium`, `high`, `xhigh`; `max` becomes `xhigh`). Model names are passed to `--model` after stripping a provider prefix. `[codex]` is host-only.
+
 ### Amazon Bedrock
 
 To use Amazon Bedrock and its foundational models, add the below configuration:

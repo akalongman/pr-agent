@@ -570,6 +570,6 @@ extra_args = [] # extra command-line arguments appended after the handler's own 
 timeout = 0 # seconds per call; 0 falls back to config.ai_timeout
 
 [codex] # settings of the "codex" AI handler (OpenAI Codex CLI, `codex exec` once per prompt). Host-only, like config.ai_handler
-binary = "codex"
+binary = "codex" # executable to run; must be on PATH or an absolute path
 extra_args = [] # appended after the exec flags, before the stdin marker
 timeout = 0 # seconds per call; 0 falls back to config.ai_timeout

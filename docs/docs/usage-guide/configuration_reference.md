@@ -569,6 +569,6 @@ _This section only documents commented-out examples; see the [TOML source](https
 
 | Key | Default | Description |
 | --- | --- | --- |
-| `binary` | "codex" |  |
+| `binary` | "codex" | executable to run; must be on PATH or an absolute path |
 | `extra_args` | [] | appended after the exec flags, before the stdin marker |
 | `timeout` | 0 | seconds per call; 0 falls back to config.ai_timeout |

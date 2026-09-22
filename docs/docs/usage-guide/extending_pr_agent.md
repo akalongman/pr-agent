@@ -32,6 +32,38 @@ in `configuration.toml`. Without either, `get_max_tokens()` raises.
 
 Verify with `PYTHONPATH=. uv run pytest tests/unittest`.
 
+## Adding an AI handler
+
+Handlers implement `BaseAiHandler` (`pr_agent/algo/ai_handlers/base_ai_handler.py`) and are
+selected by name through `config.ai_handler`, resolved by `resolve_ai_handler` in
+`pr_agent/algo/ai_handlers/registry.py`. Register a new one as a lazy `(module, class)` pair
+in `AI_HANDLERS`, so its dependencies load only when it is selected.
+
+A handler that runs a local command-line agent subclasses `CliAIHandler`
+(`pr_agent/algo/ai_handlers/cli_ai_handler.py`), which owns the subprocess, the timeout
+(`config.ai_timeout` unless the section sets `timeout`), failure mapping, logging and usage
+accounting. The subclass declares `settings_section` (a TOML section with `binary`,
+`extra_args` and `timeout`) and `default_binary`, and implements:
+
+- `build_command(model, system, user) -> CliCommand`: the full argv (binary first) and the
+  text for stdin. Keep the large prompt on stdin; a single argv element above 120,000 bytes
+  raises rather than truncating.
+- `parse_response(stdout) -> CliResponse`: the text, a finish reason (`stop` or `length`),
+  prompt and completion token counts, and a cost when the CLI reports one. Raise
+  `CliHandlerError` on a reported failure so `fallback_models` still work.
+- `map_model(model)` when stripping the provider prefix is not enough.
+
+Every CLI handler section must be added to `REPO_OVERRIDABLE_KEYS_BY_HOST_SECTION` in
+`pr_agent/config_security.py` (an empty `frozenset()`, the same idiom as `push_outputs` and
+`prompt_fragments`): the handler runs a configurable binary, so a repository's
+`.pr_agent.toml` or a comment argument must never be able to select or configure it.
+
+Tests: cover `build_command` and `parse_response` with canned output in a
+`tests/unittest/test_<name>_ai_handler.py`, add the name to
+`tests/unittest/test_ai_handler_registry.py`, and add the section to the host-only cases in
+`tests/unittest/test_apply_repo_settings_security.py` and `tests/unittest/test_cli_args_security.py`.
+`claude_code_ai_handler.py` and `codex_ai_handler.py` are the two shipped examples.
+
 ## Adding a git provider
 
 Implement a `GitProvider` subclass and register it:
