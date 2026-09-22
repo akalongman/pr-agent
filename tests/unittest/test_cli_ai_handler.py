@@ -59,6 +59,17 @@ def test_settings_section_supplies_binary_extra_args_and_timeout(monkeypatch):
     assert handler.deployment_id is None
 
 
+def test_extra_args_as_string_is_shell_split_into_the_built_command(monkeypatch):
+    # Dynaconf keeps an env-var-supplied value (e.g. CLAUDE_CODE__EXTRA_ARGS=--verbose) a plain
+    # string rather than a list; it must be shell-split, not iterated character by character.
+    _install_settings(monkeypatch, {"ECHO.EXTRA_ARGS": "--verbose --foo 'a b'"})
+    handler = _EchoAdapter()
+
+    assert handler.extra_args == ["--verbose", "--foo", "a b"]
+    command = handler.build_command("m", "sys", "usr")
+    assert command.argv[-3:] == ["--verbose", "--foo", "a b"]
+
+
 def test_defaults_fall_back_to_class_binary_and_config_timeout(monkeypatch):
     _install_settings(monkeypatch, {}, ai_timeout=42)
     handler = _EchoAdapter()
@@ -123,8 +134,31 @@ async def test_run_raises_on_non_zero_exit_with_stderr_tail(monkeypatch):
     handler = _RealProcessAdapter()
     command = CliCommand(argv=[sys.executable, "-c", "import sys; sys.stderr.write('boom'); sys.exit(3)"])
 
-    with pytest.raises(CliHandlerError, match="exited with 3: boom"):
+    with pytest.raises(CliHandlerError, match="exited with 3: stderr: boom"):
         await handler._run(command)
+
+
+async def test_run_raises_with_stdout_detail_on_non_zero_exit_when_stderr_is_empty(monkeypatch):
+    # Claude Code reports most failures (not logged in, model not found, rate limit) as an
+    # `is_error` JSON result on stdout while exiting 1 and writing nothing to stderr; the raised
+    # message must carry that stdout detail instead of coming up empty.
+    _install_settings(monkeypatch)
+    handler = _RealProcessAdapter()
+    script = (
+        "import sys; "
+        "sys.stdout.write('{\"type\": \"result\", \"is_error\": true, \"result\": \"boom\"}'); "
+        "sys.exit(1)"
+    )
+    command = CliCommand(argv=[sys.executable, "-c", script])
+
+    with pytest.raises(CliHandlerError) as exc_info:
+        await handler._run(command)
+    message = str(exc_info.value)
+    assert "exited with 1" in message
+    assert '"is_error": true' in message
+    assert '"boom"' in message
+    assert "stdout:" in message
+    assert "stderr:" not in message
 
 
 async def test_run_raises_on_timeout(monkeypatch):

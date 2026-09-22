@@ -6,6 +6,7 @@ timeout, failure mapping, logging and run-details accounting.
 """
 import asyncio
 import os
+import shlex
 import signal
 from abc import abstractmethod
 from contextlib import suppress
@@ -50,7 +51,11 @@ class CliAIHandler(BaseAiHandler):
         section = self.settings_section.upper()
         settings = get_settings()
         self.binary = settings.get(f"{section}.BINARY", None) or self.default_binary
-        self.extra_args = [str(arg) for arg in (settings.get(f"{section}.EXTRA_ARGS", None) or [])]
+        raw_extra_args = settings.get(f"{section}.EXTRA_ARGS", None) or []
+        if isinstance(raw_extra_args, str):
+            self.extra_args = shlex.split(raw_extra_args)
+        else:
+            self.extra_args = [str(arg) for arg in raw_extra_args]
         timeout = settings.get(f"{section}.TIMEOUT", None)
         self.timeout = float(timeout) if timeout else float(settings.config.ai_timeout)
 
@@ -113,8 +118,14 @@ class CliAIHandler(BaseAiHandler):
             await self._kill_process_tree(process)
             raise
         if process.returncode != 0:
-            tail = stderr.decode("utf-8", errors="replace")[-2000:]
-            raise CliHandlerError(f"{type(self).__name__}: {command.argv[0]} exited with {process.returncode}: {tail}")
+            detail_parts = []
+            for label, stream in (("stderr", stderr), ("stdout", stdout)):
+                stream_tail = stream.decode("utf-8", errors="replace")[-2000:]
+                if stream_tail:
+                    detail_parts.append(f"{label}: {stream_tail}")
+            detail = "; ".join(detail_parts)
+            raise CliHandlerError(
+                f"{type(self).__name__}: {command.argv[0]} exited with {process.returncode}: {detail}")
         return stdout.decode("utf-8", errors="replace")
 
     @staticmethod
