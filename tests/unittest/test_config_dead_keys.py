@@ -36,6 +36,34 @@ _ALLOWLIST = {
         "artifacts",
         "artifact_label",
     ): "artifacts_settings.get('artifact_label', '') in pr_agent/algo/artifacts.py",
+    # [claude_code] and [codex] read as settings.get(f"{section}.BINARY"/"EXTRA_ARGS"/"TIMEOUT", None)
+    # in the shared CliAIHandler.__init__ (pr_agent/algo/ai_handlers/cli_ai_handler.py); `section`
+    # is each adapter's own settings_section ("claude_code" or "codex"), so the static scan cannot
+    # see the interpolated dotted path.
+    (
+        "claude_code",
+        "binary",
+    ): 'settings.get(f"{section}.BINARY", None) in pr_agent/algo/ai_handlers/cli_ai_handler.py',
+    (
+        "claude_code",
+        "extra_args",
+    ): 'settings.get(f"{section}.EXTRA_ARGS", None) in pr_agent/algo/ai_handlers/cli_ai_handler.py',
+    (
+        "claude_code",
+        "timeout",
+    ): 'settings.get(f"{section}.TIMEOUT", None) in pr_agent/algo/ai_handlers/cli_ai_handler.py',
+    (
+        "codex",
+        "binary",
+    ): 'settings.get(f"{section}.BINARY", None) in pr_agent/algo/ai_handlers/cli_ai_handler.py',
+    (
+        "codex",
+        "extra_args",
+    ): 'settings.get(f"{section}.EXTRA_ARGS", None) in pr_agent/algo/ai_handlers/cli_ai_handler.py',
+    (
+        "codex",
+        "timeout",
+    ): 'settings.get(f"{section}.TIMEOUT", None) in pr_agent/algo/ai_handlers/cli_ai_handler.py',
     # [config] helpers that re-index the section from a variable or expression
     (
         "config",

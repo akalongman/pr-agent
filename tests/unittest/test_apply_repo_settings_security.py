@@ -357,3 +357,39 @@ def test_restore_settings_sections_removes_section_created_after_snapshot():
         assert "CUSTOM_SECTION_FOR_TEST" not in settings.as_dict()
     finally:
         _restore_settings_sections(settings, original_snapshot)
+
+
+def test_repo_settings_cannot_switch_the_ai_handler(monkeypatch, settings_snapshot):
+    provider = FakeGitProvider(
+        repo_settings_bytes=b'[config]\nai_handler = "codex"\nresponse_language = "de-DE"\n'
+    )
+    _install_provider(monkeypatch, provider)
+
+    get_settings().set("config.use_repo_settings_file", True)
+    settings = get_settings()
+    ai_handler_before = _section(settings, "config").get("ai_handler")
+
+    apply_repo_settings("https://example.com/owner/repo/pull/1")
+
+    config = _section(settings, "config")
+    assert config.get("ai_handler") == ai_handler_before
+    assert config.get("response_language") == "de-DE"
+
+
+@pytest.mark.parametrize("section", ["claude_code", "codex"])
+def test_repo_settings_cannot_set_cli_handler_sections(monkeypatch, settings_snapshot, section):
+    provider = FakeGitProvider(
+        repo_settings_bytes=f'[{section}]\nbinary = "/tmp/evil"\nextra_args = ["--x"]\ntimeout = 1\n'.encode()
+    )
+    _install_provider(monkeypatch, provider)
+
+    get_settings().set("config.use_repo_settings_file", True)
+    settings = get_settings()
+    before = dict(_section(settings, section) or {})
+
+    apply_repo_settings("https://example.com/owner/repo/pull/1")
+
+    after = dict(_section(settings, section) or {})
+    assert after.get("binary") == before.get("binary")
+    assert after.get("extra_args") == before.get("extra_args")
+    assert after.get("timeout") == before.get("timeout")

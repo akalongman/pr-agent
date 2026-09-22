@@ -554,3 +554,21 @@ _This section only documents commented-out examples; see the [TOML source](https
 | `file_path` | "pr-agent-outputs/reviews.jsonl" | used by the "file" channel |
 | `webhook_url` | "" | used by the "webhook" channel: generic JSON POST target. Must be an absolute https:// URL |
 | `slack_webhook_url` | "" | used by the "slack" channel: a Slack Incoming Webhook URL. Must be an absolute https:// URL |
+
+
+## `[claude_code]` — settings of the "claude_code" AI handler (Claude Code CLI, run headless once per prompt). Host-only, like config.ai_handler
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `binary` | "claude" | executable to run; must be on PATH or an absolute path |
+| `extra_args` | [] | extra command-line arguments appended after the handler's own flags |
+| `timeout` | 0 | seconds per call; 0 falls back to config.ai_timeout |
+
+
+## `[codex]` — settings of the "codex" AI handler (OpenAI Codex CLI, `codex exec` once per prompt). Host-only, like config.ai_handler
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `binary` | "codex" |  |
+| `extra_args` | [] | appended after the exec flags, before the stdin marker |
+| `timeout` | 0 | seconds per call; 0 falls back to config.ai_timeout |

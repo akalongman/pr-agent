@@ -115,6 +115,11 @@ HOST_ONLY_ARGS = [
     "--prompt_fragments.diff_hunk_format={{ cycler.__init__.__globals__ }}",
     "--prompt_fragments__diff_hunk_format=unsafe",
     '--prompt_fragments={"diff_hunk_format": "unsafe"}',
+    "--config.ai_handler=codex",
+    "--config__ai_handler=codex",
+    "--claude_code.binary=/tmp/evil",
+    "--codex.extra_args=['--dangerously-bypass-approvals-and-sandbox']",
+    "--codex={binary:/tmp/evil}",
 ]
 
 

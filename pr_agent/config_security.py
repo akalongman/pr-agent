@@ -50,7 +50,13 @@ REPO_HOST_ONLY_KEYS_BY_SECTION = {
         "description_issue_regex",
         "repo_context_max_sibling_files",
         "repo_context_sibling_repos",
+        # ai_handler picks the code that receives every prompt; the CLI-backed handlers run a
+        # configurable binary. A repository file or a comment argument must never redirect
+        # prompts to a local command, so the choice and each CLI section stay host-only.
+        "ai_handler",
     }),
+    "claude_code": frozenset({"binary", "extra_args", "timeout"}),
+    "codex": frozenset({"binary", "extra_args", "timeout"}),
 }
 
 # Keys that repositories may still configure from their own default-branch settings but that
