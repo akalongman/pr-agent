@@ -6,7 +6,9 @@ user's config and rules, and starts in an empty directory so no AGENTS.md is dis
 Authentication is the CLI's own login; this adapter reads no credentials.
 """
 import json
+import shutil
 import tempfile
+import weakref
 
 from pr_agent.algo.ai_handlers.cli_ai_handler import CliAIHandler, CliCommand, CliHandlerError, CliResponse
 from pr_agent.config_loader import get_settings
@@ -41,8 +43,13 @@ class CodexAIHandler(CliAIHandler):
 
     def __init__(self):
         super().__init__()
-        # An empty working directory: no AGENTS.md is discovered and sandboxed commands run in scratch space.
+        # One shared, empty working directory for the handler's whole lifetime (not per call): no
+        # AGENTS.md is discovered and sandboxed commands run in scratch space. Parallel calls on the
+        # same instance (e.g. PRCodeSuggestions' asyncio.gather) reuse it rather than racing to create
+        # their own. Removed by weakref.finalize when the handler is garbage-collected or at
+        # interpreter exit, since there is no synchronous "close" hook on a chat_completion adapter.
         self.workdir = tempfile.mkdtemp(prefix="pr-agent-codex-")
+        weakref.finalize(self, shutil.rmtree, self.workdir, ignore_errors=True)
 
     def build_command(self, model: str, system: str, user: str) -> CliCommand:
         argv = [
@@ -75,14 +82,18 @@ class CodexAIHandler(CliAIHandler):
                 event = json.loads(line)
             except ValueError:
                 continue
+            if not isinstance(event, dict):
+                continue
             kind = event.get("type")
             if kind in ("error", "turn.failed"):
                 detail = event.get("message") or event.get("error") or event
                 raise CliHandlerError(f"Codex reported a failure: {str(detail)[:500]}")
-            if kind == "item.completed" and (event.get("item") or {}).get("type") == "agent_message":
-                text = event["item"].get("text") or ""
+            item = event.get("item")
+            if kind == "item.completed" and isinstance(item, dict) and item.get("type") == "agent_message":
+                text = item.get("text") or ""
             elif kind == "turn.completed":
-                usage = event.get("usage") or {}
+                usage = event.get("usage")
+                usage = usage if isinstance(usage, dict) else {}
                 prompt_tokens = int(usage.get("input_tokens") or 0)
                 completion_tokens = (int(usage.get("output_tokens") or 0)
                                      + int(usage.get("reasoning_output_tokens") or 0))

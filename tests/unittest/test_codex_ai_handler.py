@@ -1,4 +1,6 @@
+import gc
 import json
+import os
 from types import SimpleNamespace
 
 import pytest
@@ -88,3 +90,33 @@ def test_parse_response_raises_without_an_agent_message(monkeypatch):
     _install_settings(monkeypatch)
     with pytest.raises(CliHandlerError, match="no agent message"):
         CodexAIHandler().parse_response(_events({"type": "turn.completed", "usage": {}}))
+
+
+def test_parse_response_skips_non_object_json_and_non_dict_item_or_usage(monkeypatch):
+    _install_settings(monkeypatch)
+    stdout = _events(
+        None,
+        42,
+        ["x"],
+        {"type": "item.completed", "item": "not-a-dict"},
+        {"type": "turn.completed", "usage": ["not", "a", "dict"]},
+        {"type": "item.completed", "item": {"id": "i1", "type": "agent_message", "text": "review text"}},
+        {"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 2, "reasoning_output_tokens": 1}},
+    )
+    response = CodexAIHandler().parse_response(stdout)
+
+    assert response.text == "review text"
+    assert response.prompt_tokens == 10
+    assert response.completion_tokens == 3
+
+
+def test_workdir_is_removed_when_the_handler_is_garbage_collected(monkeypatch):
+    _install_settings(monkeypatch)
+    handler = CodexAIHandler()
+    workdir = handler.workdir
+    assert os.path.isdir(workdir)
+
+    del handler
+    gc.collect()
+
+    assert not os.path.exists(workdir)
