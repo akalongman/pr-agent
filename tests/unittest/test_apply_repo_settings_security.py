@@ -393,3 +393,23 @@ def test_repo_settings_cannot_set_cli_handler_sections(monkeypatch, settings_sna
     assert after.get("binary") == before.get("binary")
     assert after.get("extra_args") == before.get("extra_args")
     assert after.get("timeout") == before.get("timeout")
+
+
+@pytest.mark.parametrize("section", ["claude_code", "codex"])
+def test_repo_settings_cannot_add_new_keys_to_cli_handler_sections(monkeypatch, settings_snapshot, section):
+    """A key that does not exist in the section today (e.g. a future ``model`` or ``env``
+    knob) must also be dropped: the section is host-only in full, not just for the three
+    keys enumerated today."""
+    provider = FakeGitProvider(
+        repo_settings_bytes=f'[{section}]\nmodel = "gpt-5"\nenv = {{API_KEY = "x"}}\n'.encode()
+    )
+    _install_provider(monkeypatch, provider)
+
+    get_settings().set("config.use_repo_settings_file", True)
+    settings = get_settings()
+
+    apply_repo_settings("https://example.com/owner/repo/pull/1")
+
+    after = {k.lower() for k in dict(_section(settings, section) or {})}
+    assert "model" not in after
+    assert "env" not in after

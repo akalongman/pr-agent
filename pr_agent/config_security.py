@@ -19,10 +19,19 @@
 # prompt_fragments: contains Jinja source rendered by the host before it is inserted into tool
 # prompts. Keep the whole section host-only so repository settings and comment arguments cannot
 # supply executable template expressions.
+#
+# claude_code / codex: settings of the CLI-backed AI handlers, run once per prompt as a local
+# subprocess. Every key in either section (which binary to run, its extra arguments, its
+# timeout, and any key added later) chooses how that subprocess is invoked, so a repository
+# file or a comment argument must never set any of them, not just the three enumerated today.
+# Both sections are therefore host-only in full (empty allowlist -> every key dropped), the
+# same idiom as push_outputs and prompt_fragments above.
 REPO_OVERRIDABLE_KEYS_BY_HOST_SECTION = {
     "skills": frozenset({"enabled", "max_skills_tokens"}),
     "push_outputs": frozenset(),
     "prompt_fragments": frozenset(),
+    "claude_code": frozenset(),
+    "codex": frozenset(),
 }
 
 # Individual settings in otherwise repository-configurable sections may also be
@@ -52,11 +61,11 @@ REPO_HOST_ONLY_KEYS_BY_SECTION = {
         "repo_context_sibling_repos",
         # ai_handler picks the code that receives every prompt; the CLI-backed handlers run a
         # configurable binary. A repository file or a comment argument must never redirect
-        # prompts to a local command, so the choice and each CLI section stay host-only.
+        # prompts to a local command, so the choice stays host-only. [config] is otherwise
+        # repo-configurable, so this is a per-key entry; each CLI handler's own section
+        # (claude_code, codex) is host-only in full, in REPO_OVERRIDABLE_KEYS_BY_HOST_SECTION.
         "ai_handler",
     }),
-    "claude_code": frozenset({"binary", "extra_args", "timeout"}),
-    "codex": frozenset({"binary", "extra_args", "timeout"}),
 }
 
 # Keys that repositories may still configure from their own default-branch settings but that
