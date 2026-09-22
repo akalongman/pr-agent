@@ -1,0 +1,141 @@
+import sys
+from types import SimpleNamespace
+
+import pytest
+
+import pr_agent.algo.ai_handlers.cli_ai_handler as cli_module
+from pr_agent.algo.ai_handlers.cli_ai_handler import (
+    MAX_ARGV_ELEMENT_BYTES,
+    CliAIHandler,
+    CliCommand,
+    CliHandlerError,
+    CliResponse,
+)
+from pr_agent.algo.run_details import get_run_details, init_run_details
+
+
+class _FakeSettings:
+    def __init__(self, values=None, ai_timeout=30):
+        self.values = values or {}
+        self.config = SimpleNamespace(ai_timeout=ai_timeout)
+
+    def get(self, key, default=None):
+        return self.values.get(key, default)
+
+
+class _EchoAdapter(CliAIHandler):
+    settings_section = "echo"
+    default_binary = "echo-bin"
+
+    def __init__(self):
+        super().__init__()
+        self.seen_command = None
+        self.canned_stdout = "canned"
+
+    def build_command(self, model, system, user):
+        return CliCommand(argv=[self.binary, "--model", model, "--system", system, *self.extra_args], stdin=user)
+
+    def parse_response(self, stdout):
+        return CliResponse(text=stdout.upper(), finish_reason="stop", prompt_tokens=7, completion_tokens=3, cost_usd=0.5)
+
+    async def _run(self, command):
+        self.seen_command = command
+        return self.canned_stdout
+
+
+def _install_settings(monkeypatch, values=None, ai_timeout=30):
+    monkeypatch.setattr(cli_module, "get_settings", lambda: _FakeSettings(values, ai_timeout))
+
+
+def test_settings_section_supplies_binary_extra_args_and_timeout(monkeypatch):
+    _install_settings(monkeypatch, {"ECHO.BINARY": "/opt/echo", "ECHO.EXTRA_ARGS": ["--x", 1], "ECHO.TIMEOUT": 5})
+    handler = _EchoAdapter()
+    assert handler.binary == "/opt/echo"
+    assert handler.extra_args == ["--x", "1"]
+    assert handler.timeout == 5.0
+    assert handler.deployment_id is None
+
+
+def test_defaults_fall_back_to_class_binary_and_config_timeout(monkeypatch):
+    _install_settings(monkeypatch, {}, ai_timeout=42)
+    handler = _EchoAdapter()
+    assert handler.binary == "echo-bin"
+    assert handler.extra_args == []
+    assert handler.timeout == 42.0
+
+
+async def test_chat_completion_runs_command_and_records_usage(monkeypatch):
+    _install_settings(monkeypatch)
+    init_run_details()
+    handler = _EchoAdapter()
+
+    response = await handler.chat_completion(model="anthropic/claude-opus-5", system="sys", user="usr")
+
+    assert response == ("CANNED", "stop")
+    assert handler.seen_command.argv == ["echo-bin", "--model", "claude-opus-5", "--system", "sys"]
+    assert handler.seen_command.stdin == "usr"
+    details = get_run_details()
+    assert details.num_ai_calls == 1
+    assert details.prompt_tokens == 7
+    assert details.completion_tokens == 3
+    assert details.total_tokens == 10
+
+
+async def test_image_path_is_ignored_with_a_warning(monkeypatch):
+    _install_settings(monkeypatch)
+    warnings = []
+    monkeypatch.setattr(cli_module, "get_logger", lambda: SimpleNamespace(
+        warning=lambda msg, **kw: warnings.append(msg), info=lambda *a, **kw: None))
+    handler = _EchoAdapter()
+
+    await handler.chat_completion(model="m", system="s", user="u", img_path="/tmp/x.png")
+
+    assert any("Ignoring image path" in message for message in warnings)
+
+
+async def test_oversized_argv_element_raises_before_running(monkeypatch):
+    _install_settings(monkeypatch)
+    handler = _EchoAdapter()
+
+    with pytest.raises(CliHandlerError):
+        await handler.chat_completion(model="m", system="x" * (MAX_ARGV_ELEMENT_BYTES + 1), user="u")
+    assert handler.seen_command is None
+
+
+class _RealProcessAdapter(_EchoAdapter):
+    async def _run(self, command):
+        return await CliAIHandler._run(self, command)
+
+
+async def test_run_returns_stdout_of_a_successful_process(monkeypatch):
+    _install_settings(monkeypatch)
+    handler = _RealProcessAdapter()
+    command = CliCommand(argv=[sys.executable, "-c", "import sys; print(sys.stdin.read().upper())"], stdin="hi")
+
+    assert (await handler._run(command)).strip() == "HI"
+
+
+async def test_run_raises_on_non_zero_exit_with_stderr_tail(monkeypatch):
+    _install_settings(monkeypatch)
+    handler = _RealProcessAdapter()
+    command = CliCommand(argv=[sys.executable, "-c", "import sys; sys.stderr.write('boom'); sys.exit(3)"])
+
+    with pytest.raises(CliHandlerError, match="exited with 3: boom"):
+        await handler._run(command)
+
+
+async def test_run_raises_on_timeout(monkeypatch):
+    _install_settings(monkeypatch, {"ECHO.TIMEOUT": 0.2})
+    handler = _RealProcessAdapter()
+    command = CliCommand(argv=[sys.executable, "-c", "import time; time.sleep(5)"])
+
+    with pytest.raises(CliHandlerError, match="timed out"):
+        await handler._run(command)
+
+
+async def test_run_raises_when_binary_is_missing(monkeypatch):
+    _install_settings(monkeypatch)
+    handler = _RealProcessAdapter()
+
+    with pytest.raises(CliHandlerError, match="command not found"):
+        await handler._run(CliCommand(argv=["/nonexistent/pr-agent-cli-binary"]))
