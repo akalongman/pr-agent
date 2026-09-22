@@ -3,13 +3,14 @@ import copy
 import json
 import shlex
 from functools import partial
+from typing import Optional
 
 import dynaconf
 from opentelemetry.trace import StatusCode
 from starlette_context import context, request_cycle_context
 
 from pr_agent.algo.ai_handlers.base_ai_handler import BaseAiHandler
-from pr_agent.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
+from pr_agent.algo.ai_handlers.registry import resolve_ai_handler
 from pr_agent.algo.cli_args import CliArgs
 from pr_agent.algo.comment_identity import add_comment_identity, comment_matches_identity
 from pr_agent.algo.utils import update_settings_from_args
@@ -254,8 +255,9 @@ def prepare_command(command: str) -> list[str]:
 
 
 class PRAgent:
-    def __init__(self, ai_handler: partial[BaseAiHandler,] = LiteLLMAIHandler):
-        self.ai_handler = ai_handler  # handler factory passed to each tool when it is instantiated
+    def __init__(self, ai_handler: Optional[partial[BaseAiHandler,]] = None):
+        # A handler injected by the caller wins; otherwise config.ai_handler selects one (default: litellm).
+        self.ai_handler = ai_handler if ai_handler is not None else resolve_ai_handler()
 
     async def _handle_request(
         self, pr_url, request, notify=None, propagate_tool_errors: bool | None = None

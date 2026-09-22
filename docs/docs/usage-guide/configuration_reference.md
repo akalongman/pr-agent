@@ -23,6 +23,7 @@ to-do list.
 | --- | --- | --- |
 | `model` | "gpt-5.6" |  |
 | `fallback_models` | ["gpt-5.6-terra"] |  |
+| `ai_handler` | "litellm" | which AI handler runs the prompts: "litellm" (default), "openai", "langchain", "claude_code" (Claude Code CLI, see [claude_code]), "codex" (Codex CLI, see [codex]). Host-only: a repository's .pr_agent.toml or a comment argument cannot change it |
 **CLI**
 
 | Key | Default | Description |
