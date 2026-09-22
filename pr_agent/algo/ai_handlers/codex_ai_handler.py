@@ -84,7 +84,8 @@ class CodexAIHandler(CliAIHandler):
             elif kind == "turn.completed":
                 usage = event.get("usage") or {}
                 prompt_tokens = int(usage.get("input_tokens") or 0)
-                completion_tokens = int(usage.get("output_tokens") or 0) + int(usage.get("reasoning_output_tokens") or 0)
+                completion_tokens = (int(usage.get("output_tokens") or 0)
+                                     + int(usage.get("reasoning_output_tokens") or 0))
         if text is None:
             raise CliHandlerError("Codex produced no agent message")
         return CliResponse(text=text, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
