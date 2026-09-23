@@ -282,11 +282,14 @@ fallback_models = ["anthropic/claude-sonnet-5"]
 [claude_code]
 binary = "claude"   # on PATH or an absolute path
 extra_args = []
+timeout = 0         # seconds per call; 0 falls back to config.ai_timeout
 ```
 
 Set these in the host configuration (`pr_agent/settings/configuration.toml`, or the environment as `CONFIG__AI_HANDLER=claude_code`), not in a repository's `.pr_agent.toml` and not as a command-line or comment argument: `config.ai_handler` is host-only and such arguments are rejected.
 
 Intended use: local runs by the person who owns the login, for example a pre-review of a branch with the `local` git provider or `--stdin` before a merge request exists. Anthropic documents subscription OAuth as being for "ordinary use of Claude Code and other native Anthropic applications" and asks products and shared automation to use API keys; keep CI jobs on `[anthropic] key`. `config.reasoning_effort` is passed as `--effort` when it is one of `low`, `medium`, `high`, `xhigh`, `max`. Only Claude models are accepted; provider prefixes such as `anthropic/` and Bedrock's `anthropic.` are stripped. `config.ai_handler` and the `[claude_code]` section are host-only: a repository's `.pr_agent.toml` and comment arguments cannot set them.
+
+A large diff or a high effort can take longer than `config.ai_timeout` (120 s by default), and a timed-out call falls through to the next fallback model, so raise the handler's `timeout` (`[claude_code]` or `[codex]`) for those runs. `config.fallback_models` must also list models the CLI accepts, because the default fallback is an OpenAI model that the Claude Code handler rejects; the example above sets it explicitly.
 
 !!! warning "Unset the API key for subscription billing"
     If `ANTHROPIC_API_KEY` is present in the environment PR-Agent runs in, Claude Code bills that API key instead of using the subscription login; unset it in that environment to keep this handler on subscription billing.
@@ -304,6 +307,7 @@ fallback_models = ["gpt-5.6-terra"]
 [codex]
 binary = "codex"
 extra_args = []
+timeout = 0 # seconds per call; 0 falls back to config.ai_timeout
 ```
 
 As above, set these in the host configuration (or `CONFIG__AI_HANDLER=codex` in the environment), never in a repository file or an argument.
