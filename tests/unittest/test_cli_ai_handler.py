@@ -238,6 +238,16 @@ async def test_run_raises_when_binary_is_not_executable(monkeypatch, tmp_path):
     assert isinstance(exc_info.value.__cause__, PermissionError)
 
 
+async def test_run_raises_when_an_argument_contains_a_nul_byte(monkeypatch):
+    _install_settings(monkeypatch)
+    handler = _RealProcessAdapter()
+
+    with pytest.raises(CliHandlerError, match="_RealProcessAdapter") as exc_info:
+        await handler._run(CliCommand(argv=[sys.executable, "-c", "pass", "a\x00b"]))
+    assert "embedded null byte" in str(exc_info.value)
+    assert isinstance(exc_info.value.__cause__, ValueError)
+
+
 async def test_run_kills_process_tree_on_timeout(monkeypatch):
     # Spawn a grandchild from the direct child that inherits stdout/stderr and outlives it: a plain
     # process.kill() on the direct child would leave the grandchild holding the pipes open, so

@@ -126,9 +126,10 @@ class CliAIHandler(BaseAiHandler):
                 start_new_session=(os.name == "posix"))
         except FileNotFoundError as e:
             raise CliHandlerError(f"{type(self).__name__}: command not found: {command.argv[0]}") from e
-        except OSError as e:
-            # Report every other launch failure (PermissionError, E2BIG "Argument list too long") as a
-            # CliHandlerError too, so every CLI failure reaches callers as one exception type.
+        except (OSError, ValueError) as e:
+            # Report every other launch failure as a CliHandlerError too, so every CLI failure reaches
+            # callers as one exception type: an OSError (PermissionError, E2BIG "Argument list too long")
+            # or the ValueError subprocess raises for an argument that contains a NUL byte.
             raise CliHandlerError(f"{type(self).__name__}: cannot run {command.argv[0]}: {e}") from e
         payload = command.stdin.encode("utf-8") if command.stdin is not None else None
         try:
