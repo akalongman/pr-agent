@@ -61,8 +61,8 @@ def test_settings_section_supplies_binary_extra_args_and_timeout(monkeypatch):
 
 
 def test_extra_args_as_string_is_shell_split_into_the_built_command(monkeypatch):
-    # Dynaconf keeps an env-var-supplied value (e.g. CLAUDE_CODE__EXTRA_ARGS=--verbose) a plain
-    # string rather than a list; it must be shell-split, not iterated character by character.
+    # Shell-split an env-var-supplied value (e.g. CLAUDE_CODE__EXTRA_ARGS=--verbose), which Dynaconf
+    # keeps a plain string rather than a list, instead of iterating it character by character.
     _install_settings(monkeypatch, {"ECHO.EXTRA_ARGS": "--verbose --foo 'a b'"})
     handler = _EchoAdapter()
 
@@ -184,9 +184,9 @@ async def test_run_raises_on_non_zero_exit_with_stderr_tail(monkeypatch):
 
 
 async def test_run_raises_with_stdout_detail_on_non_zero_exit_when_stderr_is_empty(monkeypatch):
-    # Claude Code reports most failures (not logged in, model not found, rate limit) as an
-    # `is_error` JSON result on stdout while exiting 1 and writing nothing to stderr; the raised
-    # message must carry that stdout detail instead of coming up empty.
+    # Carry the stdout detail in the raised message: Claude Code reports most failures (not logged
+    # in, model not found, rate limit) as an `is_error` JSON result on stdout while exiting 1 and
+    # writing nothing to stderr, so the stderr tail alone would come up empty.
     _install_settings(monkeypatch)
     handler = _RealProcessAdapter()
     script = (
@@ -239,9 +239,9 @@ async def test_run_raises_when_binary_is_not_executable(monkeypatch, tmp_path):
 
 
 async def test_run_kills_process_tree_on_timeout(monkeypatch):
-    # The direct child spawns a grandchild that inherits stdout/stderr and outlives it; a plain
+    # Spawn a grandchild from the direct child that inherits stdout/stderr and outlives it: a plain
     # process.kill() on the direct child would leave the grandchild holding the pipes open, so
-    # communicate() would not see EOF until its own multi-second sleep ends.
+    # communicate() would not see EOF until the grandchild's multi-second sleep ends.
     _install_settings(monkeypatch, {"ECHO.TIMEOUT": 0.3})
     handler = _RealProcessAdapter()
     script = (

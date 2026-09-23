@@ -1,4 +1,4 @@
-"""Adapter that runs Claude Code headless (``claude -p``) once per call.
+"""Run Claude Code headless (``claude -p``) once per call.
 
 The flag set turns the harness into a plain completion: its own system prompt is replaced,
 tools, settings files and MCP servers are off, and nothing is persisted. Authentication is

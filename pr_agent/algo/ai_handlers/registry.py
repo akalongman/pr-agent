@@ -1,4 +1,4 @@
-"""Name-keyed AI handler registry, resolved from ``config.ai_handler`` (default ``litellm``)."""
+"""Map AI handler names to their classes and resolve the one ``config.ai_handler`` selects (default ``litellm``)."""
 from importlib import import_module
 from typing import Optional
 
@@ -7,7 +7,8 @@ from pr_agent.config_loader import get_settings
 
 DEFAULT_AI_HANDLER = "litellm"
 
-# Lazy (module, class) pairs, like _BUILTIN_GIT_PROVIDERS: a handler's dependencies load only when selected.
+# Keep (module, class) pairs, like _BUILTIN_GIT_PROVIDERS, so the registry imports the selected
+# handler's module on demand.
 AI_HANDLERS: dict[str, tuple[str, str]] = {
     "litellm": ("pr_agent.algo.ai_handlers.litellm_ai_handler", "LiteLLMAIHandler"),
     "openai": ("pr_agent.algo.ai_handlers.openai_ai_handler", "OpenAIHandler"),

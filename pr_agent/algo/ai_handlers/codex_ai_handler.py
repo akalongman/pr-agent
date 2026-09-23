@@ -1,4 +1,4 @@
-"""Adapter that runs the OpenAI Codex CLI non-interactively (``codex exec``) once per call.
+"""Run the OpenAI Codex CLI non-interactively (``codex exec``) once per call.
 
 Global flags go before the subcommand: approvals off, a read-only sandbox, the model, and
 pr-agent's system prompt as ``developer_instructions``. The run is ephemeral, ignores the
@@ -44,11 +44,11 @@ class CodexAIHandler(CliAIHandler):
 
     def __init__(self):
         super().__init__()
-        # One shared, empty working directory for the handler's whole lifetime (not per call): no
-        # AGENTS.md is discovered and sandboxed commands run in scratch space. Parallel calls on the
-        # same instance (e.g. PRCodeSuggestions' asyncio.gather) reuse it rather than racing to create
-        # their own. Removed by weakref.finalize when the handler is garbage-collected or at
-        # interpreter exit, since there is no synchronous "close" hook on a chat_completion adapter.
+        # Create one shared, empty working directory for the handler's whole lifetime (not per call),
+        # so no AGENTS.md is discovered and sandboxed commands run in scratch space. Parallel calls on
+        # the same instance (e.g. PRCodeSuggestions' asyncio.gather) reuse it rather than racing to
+        # create their own. Remove it with weakref.finalize when the handler is garbage-collected or at
+        # interpreter exit, since a chat_completion adapter has no synchronous "close" hook.
         self.workdir = tempfile.mkdtemp(prefix="pr-agent-codex-")
         weakref.finalize(self, shutil.rmtree, self.workdir, ignore_errors=True)
 

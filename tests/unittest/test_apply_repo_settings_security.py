@@ -401,9 +401,8 @@ def test_repo_settings_cannot_set_cli_handler_sections(monkeypatch, settings_sna
 
 @pytest.mark.parametrize("section", ["claude_code", "codex"])
 def test_repo_settings_cannot_add_new_keys_to_cli_handler_sections(monkeypatch, settings_snapshot, section):
-    """A key that does not exist in the section today (e.g. a future ``model`` or ``env``
-    knob) must also be dropped: the section is host-only in full, not just for the three
-    keys enumerated today."""
+    """Drop a key the section does not define today (e.g. a future ``model`` or ``env`` knob)
+    as well: the section is host-only in full, not just for the three keys enumerated today."""
     provider = FakeGitProvider(
         repo_settings_bytes=(
             f'[{section}]\nmodel = "gpt-5"\nenv = {{API_KEY = "x"}}\n'

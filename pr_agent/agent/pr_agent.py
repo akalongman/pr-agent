@@ -256,7 +256,7 @@ def prepare_command(command: str) -> list[str]:
 
 class PRAgent:
     def __init__(self, ai_handler: Optional[partial[BaseAiHandler,]] = None):
-        # A handler injected by the caller wins; otherwise config.ai_handler selects one (default: litellm).
+        # Prefer a handler the caller injects; otherwise resolve one from config.ai_handler (default: litellm).
         self.ai_handler = ai_handler if ai_handler is not None else resolve_ai_handler()
 
     async def _handle_request(

@@ -1,4 +1,4 @@
-"""Shared base for AI handlers that run a local command-line agent once per call.
+"""Share the subprocess plumbing of AI handlers that run a local command-line agent once per call.
 
 An adapter subclass decides how a prompt becomes a command (argv and stdin) and how the
 command's stdout becomes text and token counts. This base owns the subprocess, its
@@ -23,7 +23,7 @@ MAX_ARGV_ELEMENT_BYTES = 120_000
 
 
 class CliHandlerError(RuntimeError):
-    """A CLI-backed call failed. Raised (never swallowed) so retry_with_fallback_models moves on."""
+    """Signal a failed CLI-backed call; raise it (never swallow it) so retry_with_fallback_models moves on."""
 
 
 @dataclass
@@ -78,7 +78,7 @@ class CliAIHandler(BaseAiHandler):
     def map_model(self, model: str) -> str:
         """Return the last ``/``-separated segment of ``model``; adapters may narrow this.
 
-        Every provider prefix goes, so ``openrouter/anthropic/claude-x`` becomes ``claude-x``.
+        Drop every provider prefix, so ``openrouter/anthropic/claude-x`` becomes ``claude-x``.
         """
         return model.rsplit("/", 1)[-1]
 

@@ -20,12 +20,11 @@
 # prompts. Keep the whole section host-only so repository settings and comment arguments cannot
 # supply executable template expressions.
 #
-# claude_code / codex: settings of the CLI-backed AI handlers, run once per prompt as a local
-# subprocess. Every key in either section (which binary to run, its extra arguments, its
-# timeout, and any key added later) chooses how that subprocess is invoked, so a repository
-# file or a comment argument must never set any of them, not just the three enumerated today.
-# Both sections are therefore host-only in full (empty allowlist -> every key dropped), the
-# same idiom as push_outputs and prompt_fragments above.
+# claude_code / codex: settings of the CLI-backed AI handlers, which run a local subprocess once
+# per prompt. Every key in either section (the binary, its extra arguments, its timeout, and any
+# key added later) chooses how that subprocess is invoked. Keep both sections host-only in full
+# (empty allowlist -> every key dropped), like push_outputs and prompt_fragments above, so
+# repository settings and comment arguments cannot set any of those keys.
 REPO_OVERRIDABLE_KEYS_BY_HOST_SECTION = {
     "skills": frozenset({"enabled", "max_skills_tokens"}),
     "push_outputs": frozenset(),
@@ -59,11 +58,11 @@ REPO_HOST_ONLY_KEYS_BY_SECTION = {
         "description_issue_regex",
         "repo_context_max_sibling_files",
         "repo_context_sibling_repos",
-        # ai_handler picks the code that receives every prompt; the CLI-backed handlers run a
-        # configurable binary. A repository file or a comment argument must never redirect
-        # prompts to a local command, so the choice stays host-only. [config] is otherwise
-        # repo-configurable, so this is a per-key entry; each CLI handler's own section
-        # (claude_code, codex) is host-only in full, in REPO_OVERRIDABLE_KEYS_BY_HOST_SECTION.
+        # ai_handler picks the code that receives every prompt, and the CLI-backed handlers run a
+        # configurable binary. Keep the choice host-only so repository settings and comment
+        # arguments cannot redirect prompts to a local command. List it per key because [config] is
+        # otherwise repo-configurable; each CLI handler's own section (claude_code, codex) is
+        # host-only in full, in REPO_OVERRIDABLE_KEYS_BY_HOST_SECTION.
         "ai_handler",
     }),
 }

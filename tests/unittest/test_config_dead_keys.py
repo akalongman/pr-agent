@@ -38,8 +38,8 @@ _ALLOWLIST = {
     ): "artifacts_settings.get('artifact_label', '') in pr_agent/algo/artifacts.py",
     # [claude_code] and [codex] read as settings.get(f"{section}.BINARY"/"EXTRA_ARGS"/"TIMEOUT", None)
     # in the shared CliAIHandler.__init__ (pr_agent/algo/ai_handlers/cli_ai_handler.py); `section`
-    # is each adapter's own settings_section ("claude_code" or "codex"), so the static scan cannot
-    # see the interpolated dotted path.
+    # is each adapter's settings_section upper-cased ("CLAUDE_CODE" or "CODEX"), so the static scan
+    # cannot see the interpolated dotted path.
     (
         "claude_code",
         "binary",
