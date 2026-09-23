@@ -43,9 +43,17 @@ class ClaudeCodeAIHandler(CliAIHandler):
             data = json.loads(stdout)
         except ValueError as e:
             raise CliHandlerError("Claude Code did not return a JSON result") from e
-        if not isinstance(data, dict) or data.get("is_error") or data.get("subtype") != "success":
-            detail = data.get("result") if isinstance(data, dict) else stdout
-            raise CliHandlerError(f"Claude Code reported an error: {str(detail)[:500]}")
+        if not isinstance(data, dict):
+            raise CliHandlerError(f"Claude Code reported an error: {stdout[:500]}")
+        if data.get("is_error") or data.get("subtype") != "success":
+            message = "Claude Code reported an error"
+            subtype = data.get("subtype")
+            # Name the subtype only when it says more than "success", which an is_error result can still carry.
+            if subtype and subtype != "success":
+                message += f" ({subtype})"
+            if data.get("result"):
+                message += f": {str(data['result'])[:500]}"
+            raise CliHandlerError(message)
         usage = data.get("usage") or {}
         prompt_tokens = sum(int(usage.get(key) or 0)
                             for key in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))

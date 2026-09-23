@@ -94,6 +94,16 @@ def test_parse_response_raises_on_reported_error(monkeypatch):
         ClaudeCodeAIHandler().parse_response(_success_payload(is_error=True, result="Not logged in"))
 
 
+def test_parse_response_names_the_subtype_when_no_result_is_reported(monkeypatch):
+    _install_settings(monkeypatch)
+    payload = json.loads(_success_payload(subtype="error_max_turns", is_error=True))
+    del payload["result"]
+
+    with pytest.raises(CliHandlerError) as exc_info:
+        ClaudeCodeAIHandler().parse_response(json.dumps(payload))
+    assert str(exc_info.value) == "Claude Code reported an error (error_max_turns)"
+
+
 def test_parse_response_raises_on_non_json(monkeypatch):
     _install_settings(monkeypatch)
     with pytest.raises(CliHandlerError, match="JSON"):
