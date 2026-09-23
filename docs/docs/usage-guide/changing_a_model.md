@@ -310,7 +310,7 @@ extra_args = []
 timeout = 0 # seconds per call; 0 falls back to config.ai_timeout
 ```
 
-As above, set these in the host configuration (or `CONFIG__AI_HANDLER=codex` in the environment), never in a repository file or an argument.
+As above, set these in the host configuration (or `CONFIG__AI_HANDLER=codex` in the environment), never in a repository file or an argument. The timeout note above applies here too: raise `[codex] timeout` when a large diff or a high effort outruns `config.ai_timeout`.
 
 Intended use is the same: local, individual runs under the CLI's own login. OpenAI recommends API-key authentication "for programmatic Codex CLI workflows, such as CI/CD jobs", so keep CI on an API key. `config.reasoning_effort` maps to `model_reasoning_effort`: `low`, `medium`, `high`, `xhigh` and `max` pass through; `none` and `minimal` become `low`, because current Codex models reject `minimal` (and `gpt-6-astra` also rejects `none`). Model names are passed to `--model` after stripping a provider prefix. `[codex]` is host-only.
 
