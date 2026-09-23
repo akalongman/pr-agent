@@ -70,6 +70,13 @@ def test_extra_args_as_string_is_shell_split_into_the_built_command(monkeypatch)
     assert command.argv[-3:] == ["--verbose", "--foo", "a b"]
 
 
+def test_unparseable_extra_args_string_raises_naming_the_setting(monkeypatch):
+    _install_settings(monkeypatch, {"ECHO.EXTRA_ARGS": "--foo 'unbalanced"})
+
+    with pytest.raises(CliHandlerError, match=r"echo\.extra_args"):
+        _EchoAdapter()
+
+
 def test_defaults_fall_back_to_class_binary_and_config_timeout(monkeypatch):
     _install_settings(monkeypatch, {}, ai_timeout=42)
     handler = _EchoAdapter()
@@ -114,6 +121,32 @@ async def test_oversized_argv_element_raises_before_running(monkeypatch):
     with pytest.raises(CliHandlerError):
         await handler.chat_completion(model="m", system="x" * (MAX_ARGV_ELEMENT_BYTES + 1), user="u")
     assert handler.seen_command is None
+
+
+class _BrokenParserAdapter(_EchoAdapter):
+    def parse_response(self, stdout):
+        raise ValueError("unexpected output shape")
+
+
+async def test_parse_failure_surfaces_as_cli_handler_error(monkeypatch):
+    _install_settings(monkeypatch)
+
+    with pytest.raises(CliHandlerError, match="_BrokenParserAdapter") as exc_info:
+        await _BrokenParserAdapter().chat_completion(model="m", system="s", user="u")
+    assert isinstance(exc_info.value.__cause__, ValueError)
+
+
+async def test_cli_handler_error_from_parse_response_propagates_unwrapped(monkeypatch):
+    _install_settings(monkeypatch)
+    reported = CliHandlerError("reported failure")
+
+    class _ReportingAdapter(_EchoAdapter):
+        def parse_response(self, stdout):
+            raise reported
+
+    with pytest.raises(CliHandlerError) as exc_info:
+        await _ReportingAdapter().chat_completion(model="m", system="s", user="u")
+    assert exc_info.value is reported
 
 
 class _RealProcessAdapter(_EchoAdapter):
@@ -176,6 +209,21 @@ async def test_run_raises_when_binary_is_missing(monkeypatch):
 
     with pytest.raises(CliHandlerError, match="command not found"):
         await handler._run(CliCommand(argv=["/nonexistent/pr-agent-cli-binary"]))
+
+
+async def test_run_raises_when_binary_is_not_executable(monkeypatch, tmp_path):
+    _install_settings(monkeypatch)
+    handler = _RealProcessAdapter()
+    binary = tmp_path / "not-executable"
+    binary.write_text("#!/bin/sh\nexit 0\n")
+    binary.chmod(0o644)
+
+    with pytest.raises(CliHandlerError, match="_RealProcessAdapter") as exc_info:
+        await handler._run(CliCommand(argv=[str(binary)]))
+    message = str(exc_info.value)
+    assert str(binary) in message
+    assert "Permission denied" in message
+    assert isinstance(exc_info.value.__cause__, PermissionError)
 
 
 async def test_run_kills_process_tree_on_timeout(monkeypatch):

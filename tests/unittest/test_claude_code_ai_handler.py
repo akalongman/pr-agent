@@ -98,3 +98,17 @@ def test_parse_response_raises_on_non_json(monkeypatch):
     _install_settings(monkeypatch)
     with pytest.raises(CliHandlerError, match="JSON"):
         ClaudeCodeAIHandler().parse_response("plain text")
+
+
+async def test_chat_completion_raises_cli_handler_error_on_non_numeric_usage(monkeypatch):
+    _install_settings(monkeypatch)
+    handler = ClaudeCodeAIHandler()
+
+    async def fake_run(command):
+        return _success_payload(usage={"input_tokens": 400, "output_tokens": "many"})
+
+    monkeypatch.setattr(handler, "_run", fake_run)
+
+    with pytest.raises(CliHandlerError, match="ClaudeCodeAIHandler") as exc_info:
+        await handler.chat_completion(model="anthropic/claude-opus-5", system="s", user="u")
+    assert isinstance(exc_info.value.__cause__, ValueError)

@@ -53,7 +53,11 @@ class CliAIHandler(BaseAiHandler):
         self.binary = settings.get(f"{section}.BINARY", None) or self.default_binary
         raw_extra_args = settings.get(f"{section}.EXTRA_ARGS", None) or []
         if isinstance(raw_extra_args, str):
-            self.extra_args = shlex.split(raw_extra_args)
+            try:
+                self.extra_args = shlex.split(raw_extra_args)
+            except ValueError as e:
+                raise CliHandlerError(
+                    f"{type(self).__name__}: cannot parse {self.settings_section}.extra_args: {e}") from e
         else:
             self.extra_args = [str(arg) for arg in raw_extra_args]
         timeout = settings.get(f"{section}.TIMEOUT", None)
@@ -88,7 +92,13 @@ class CliAIHandler(BaseAiHandler):
         get_logger().info("System: ", system)
         get_logger().info("User: ", user)
         stdout = await self._run(command)
-        response = self.parse_response(stdout)
+        try:
+            response = self.parse_response(stdout)
+        except CliHandlerError:
+            raise
+        except Exception as e:
+            raise CliHandlerError(
+                f"{type(self).__name__}: cannot parse the output of {command.argv[0]}: {type(e).__name__}: {e}") from e
         get_logger().info("AI response", response=response.text, finish_reason=response.finish_reason,
                           model=mapped_model, prompt_tokens=response.prompt_tokens,
                           completion_tokens=response.completion_tokens)
@@ -108,6 +118,10 @@ class CliAIHandler(BaseAiHandler):
                 start_new_session=(os.name == "posix"))
         except FileNotFoundError as e:
             raise CliHandlerError(f"{type(self).__name__}: command not found: {command.argv[0]}") from e
+        except OSError as e:
+            # Report every other launch failure (PermissionError, E2BIG "Argument list too long") as a
+            # CliHandlerError too, so every CLI failure reaches callers as one exception type.
+            raise CliHandlerError(f"{type(self).__name__}: cannot run {command.argv[0]}: {e}") from e
         payload = command.stdin.encode("utf-8") if command.stdin is not None else None
         try:
             stdout, stderr = await asyncio.wait_for(process.communicate(payload), timeout=self.timeout)
