@@ -60,6 +60,14 @@ def test_settings_section_supplies_binary_extra_args_and_timeout(monkeypatch):
     assert handler.deployment_id is None
 
 
+@pytest.mark.parametrize("extra_args", [1, True, {"verbose": True}], ids=["int", "bool", "dict"])
+def test_extra_args_that_is_neither_a_list_nor_a_string_raises_naming_the_setting(monkeypatch, extra_args):
+    _install_settings(monkeypatch, {"ECHO.EXTRA_ARGS": extra_args})
+
+    with pytest.raises(CliHandlerError, match=r"echo\.extra_args"):
+        _EchoAdapter()
+
+
 def test_extra_args_as_string_is_shell_split_into_the_built_command(monkeypatch):
     # Shell-split an env-var-supplied value (e.g. CLAUDE_CODE__EXTRA_ARGS=--verbose), which Dynaconf
     # keeps a plain string rather than a list, instead of iterating it character by character.

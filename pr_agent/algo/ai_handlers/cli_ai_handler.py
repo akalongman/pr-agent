@@ -58,8 +58,13 @@ class CliAIHandler(BaseAiHandler):
             except ValueError as e:
                 raise CliHandlerError(
                     f"{type(self).__name__}: cannot parse {self.settings_section}.extra_args: {e}") from e
-        else:
+        elif isinstance(raw_extra_args, (list, tuple)):
             self.extra_args = [str(arg) for arg in raw_extra_args]
+        else:
+            # Reject a scalar or a table (a dict would silently become its keys) instead of iterating it.
+            raise CliHandlerError(
+                f"{type(self).__name__}: cannot parse {self.settings_section}.extra_args: "
+                f"expected a list or a string, got {type(raw_extra_args).__name__}")
         timeout = settings.get(f"{section}.TIMEOUT", None)
         self.timeout = float(timeout) if timeout else float(settings.config.ai_timeout)
 
