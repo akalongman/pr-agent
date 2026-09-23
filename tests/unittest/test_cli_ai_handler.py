@@ -39,7 +39,8 @@ class _EchoAdapter(CliAIHandler):
         return CliCommand(argv=[self.binary, "--model", model, "--system", system, *self.extra_args], stdin=user)
 
     def parse_response(self, stdout):
-        return CliResponse(text=stdout.upper(), finish_reason="stop", prompt_tokens=7, completion_tokens=3, cost_usd=0.5)
+        return CliResponse(text=stdout.upper(), finish_reason="stop", prompt_tokens=7, completion_tokens=3,
+                           cost_usd=0.5)
 
     async def _run(self, command):
         self.seen_command = command
@@ -106,12 +107,23 @@ async def test_image_path_is_ignored_with_a_warning(monkeypatch):
     _install_settings(monkeypatch)
     warnings = []
     monkeypatch.setattr(cli_module, "get_logger", lambda: SimpleNamespace(
-        warning=lambda msg, **kw: warnings.append(msg), info=lambda *a, **kw: None))
+        warning=lambda msg, **kw: warnings.append(msg), info=lambda *a, **kw: None, debug=lambda *a, **kw: None))
     handler = _EchoAdapter()
 
     await handler.chat_completion(model="m", system="s", user="u", img_path="/tmp/x.png")
 
     assert any("Ignoring image path" in message for message in warnings)
+
+
+async def test_chat_completion_logs_the_prompts_as_a_debug_artifact(monkeypatch):
+    _install_settings(monkeypatch)
+    debug_calls = []
+    monkeypatch.setattr(cli_module, "get_logger", lambda: SimpleNamespace(
+        debug=lambda msg, **kw: debug_calls.append((msg, kw)), info=lambda *a, **kw: None))
+
+    await _EchoAdapter().chat_completion(model="m", system="sys", user="usr")
+
+    assert debug_calls == [("Prompts", {"artifact": {"system": "sys", "user": "usr"}})]
 
 
 async def test_oversized_argv_element_raises_before_running(monkeypatch):

@@ -3,7 +3,6 @@ from types import SimpleNamespace
 
 import pytest
 
-import pr_agent.algo.ai_handlers.claude_code_ai_handler as claude_module
 import pr_agent.algo.ai_handlers.cli_ai_handler as cli_module
 from pr_agent.algo.ai_handlers.claude_code_ai_handler import ClaudeCodeAIHandler
 from pr_agent.algo.ai_handlers.cli_ai_handler import CliHandlerError
@@ -19,9 +18,7 @@ class _FakeSettings:
 
 
 def _install_settings(monkeypatch, values=None):
-    factory = lambda: _FakeSettings(values)  # noqa: E731
-    monkeypatch.setattr(cli_module, "get_settings", factory)
-    monkeypatch.setattr(claude_module, "get_settings", factory)
+    monkeypatch.setattr(cli_module, "get_settings", lambda: _FakeSettings(values))
 
 
 def _success_payload(**overrides):

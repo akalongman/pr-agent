@@ -76,12 +76,21 @@ class CliAIHandler(BaseAiHandler):
         """Turn the command's stdout into text and counts; raise CliHandlerError on a reported failure."""
 
     def map_model(self, model: str) -> str:
-        """Strip a LiteLLM provider prefix such as ``anthropic/``; adapters may narrow this."""
+        """Return the last ``/``-separated segment of ``model``; adapters may narrow this.
+
+        Every provider prefix goes, so ``openrouter/anthropic/claude-x`` becomes ``claude-x``.
+        """
         return model.rsplit("/", 1)[-1]
+
+    @staticmethod
+    def reasoning_effort() -> str:
+        """Return ``config.reasoning_effort`` lower-cased, or an empty string when it is unset."""
+        return str(get_settings().get("CONFIG.REASONING_EFFORT", "") or "").lower()
 
     async def chat_completion(self, model: str, system: str, user: str, temperature: float = 0.2, img_path: str = None):
         if img_path and not self.supports_images:
-            get_logger().warning(f"Image path is not supported for {type(self).__name__}. Ignoring image path: {img_path}")
+            get_logger().warning(
+                f"Image path is not supported for {type(self).__name__}. Ignoring image path: {img_path}")
         mapped_model = self.map_model(model)
         command = self.build_command(mapped_model, system, user)
         for arg in command.argv:
@@ -89,8 +98,7 @@ class CliAIHandler(BaseAiHandler):
                 raise CliHandlerError(
                     f"{type(self).__name__}: a command argument exceeds {MAX_ARGV_ELEMENT_BYTES} bytes; "
                     "the prompt does not fit in one argv element")
-        get_logger().info("System: ", system)
-        get_logger().info("User: ", user)
+        get_logger().debug("Prompts", artifact={"system": system, "user": user})
         stdout = await self._run(command)
         try:
             response = self.parse_response(stdout)

@@ -7,7 +7,6 @@ the harness's own login; this adapter reads no credentials.
 import json
 
 from pr_agent.algo.ai_handlers.cli_ai_handler import CliAIHandler, CliCommand, CliHandlerError, CliResponse
-from pr_agent.config_loader import get_settings
 
 CLAUDE_CODE_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 CLAUDE_ALIASES = frozenset({"opus", "sonnet", "haiku", "fable"})
@@ -18,7 +17,7 @@ class ClaudeCodeAIHandler(CliAIHandler):
     default_binary = "claude"
 
     def map_model(self, model: str) -> str:
-        name = model.rsplit("/", 1)[-1]
+        name = super().map_model(model)
         if name.startswith("anthropic."):
             name = name[len("anthropic."):]
         if "claude" not in name and name not in CLAUDE_ALIASES:
@@ -32,7 +31,7 @@ class ClaudeCodeAIHandler(CliAIHandler):
             "--no-session-persistence", "--output-format", "json",
             "--system-prompt", system, "--model", model,
         ]
-        effort = str(get_settings().get("CONFIG.REASONING_EFFORT", "") or "").lower()
+        effort = self.reasoning_effort()
         if effort in CLAUDE_CODE_EFFORTS:
             argv += ["--effort", effort]
         argv += self.extra_args
