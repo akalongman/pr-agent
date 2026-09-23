@@ -1,4 +1,5 @@
 import asyncio
+import errno
 import os
 import sys
 import time
@@ -240,10 +241,9 @@ async def test_run_raises_when_binary_is_not_executable(monkeypatch, tmp_path):
 
     with pytest.raises(CliHandlerError, match="_RealProcessAdapter") as exc_info:
         await handler._run(CliCommand(argv=[str(binary)]))
-    message = str(exc_info.value)
-    assert str(binary) in message
-    assert "Permission denied" in message
+    assert str(binary) in str(exc_info.value)
     assert isinstance(exc_info.value.__cause__, PermissionError)
+    assert exc_info.value.__cause__.errno == errno.EACCES
 
 
 async def test_run_raises_when_an_argument_contains_a_nul_byte(monkeypatch):
