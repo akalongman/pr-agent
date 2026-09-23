@@ -379,7 +379,10 @@ def test_repo_settings_cannot_switch_the_ai_handler(monkeypatch, settings_snapsh
 @pytest.mark.parametrize("section", ["claude_code", "codex"])
 def test_repo_settings_cannot_set_cli_handler_sections(monkeypatch, settings_snapshot, section):
     provider = FakeGitProvider(
-        repo_settings_bytes=f'[{section}]\nbinary = "/tmp/evil"\nextra_args = ["--x"]\ntimeout = 1\n'.encode()
+        repo_settings_bytes=(
+            f'[{section}]\nbinary = "/tmp/evil"\nextra_args = ["--x"]\ntimeout = 1\n'
+            '[config]\nresponse_language = "de-DE"\n'
+        ).encode()
     )
     _install_provider(monkeypatch, provider)
 
@@ -393,6 +396,7 @@ def test_repo_settings_cannot_set_cli_handler_sections(monkeypatch, settings_sna
     assert after.get("binary") == before.get("binary")
     assert after.get("extra_args") == before.get("extra_args")
     assert after.get("timeout") == before.get("timeout")
+    assert _section(settings, "config").get("response_language") == "de-DE"
 
 
 @pytest.mark.parametrize("section", ["claude_code", "codex"])
@@ -401,7 +405,10 @@ def test_repo_settings_cannot_add_new_keys_to_cli_handler_sections(monkeypatch, 
     knob) must also be dropped: the section is host-only in full, not just for the three
     keys enumerated today."""
     provider = FakeGitProvider(
-        repo_settings_bytes=f'[{section}]\nmodel = "gpt-5"\nenv = {{API_KEY = "x"}}\n'.encode()
+        repo_settings_bytes=(
+            f'[{section}]\nmodel = "gpt-5"\nenv = {{API_KEY = "x"}}\n'
+            '[config]\nresponse_language = "de-DE"\n'
+        ).encode()
     )
     _install_provider(monkeypatch, provider)
 
@@ -413,3 +420,4 @@ def test_repo_settings_cannot_add_new_keys_to_cli_handler_sections(monkeypatch, 
     after = {k.lower() for k in dict(_section(settings, section) or {})}
     assert "model" not in after
     assert "env" not in after
+    assert _section(settings, "config").get("response_language") == "de-DE"

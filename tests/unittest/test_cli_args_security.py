@@ -120,6 +120,7 @@ HOST_ONLY_ARGS = [
     "--claude_code.binary=/tmp/evil",
     "--codex.extra_args=['--dangerously-bypass-approvals-and-sandbox']",
     "--codex={binary:/tmp/evil}",
+    "--claude_code={binary:/tmp/evil}",
     # claude_code / codex are host-only sections in full: a key that isn't one of today's
     # three (binary, extra_args, timeout) must still be rejected, not merged by default.
     "--claude_code.model=gpt-5",
